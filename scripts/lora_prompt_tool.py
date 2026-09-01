@@ -1,5 +1,8 @@
 import modules.scripts as scripts
 import gradio as gr
+
+# gr.Box is absent in some Gradio 4 builds used by Forge Neo.
+GradioBox = getattr(gr, "Box", gr.Group)
 import modules
 from modules import script_callbacks
 from modules import shared
@@ -28,7 +31,7 @@ def on_ui_tabs():
         img2img_prompt = modules.ui.img2img_paste_fields[0][0]
         img2img_neg_prompt = modules.ui.img2img_paste_fields[1][0]
         with gr.Tab(localization.get_localize('Edit Model Trigger Words')):
-            with gr.Box(elem_classes="lorahelp_box"):
+            with GradioBox(elem_classes="lorahelp_box"):
                 #模型基礎資料區
                 with gr.Column():
                     gr.Markdown(f"### {localization.get_localize('Edit Model Basic Data')}")
@@ -42,7 +45,7 @@ def on_ui_tabs():
                     with gr.Row():
                         js_suggested_weight = gr.Textbox(label=localization.get_localize("Suggested weight"), interactive=True, placeholder="EX: 1.0")
                         js_model_params = gr.Textbox(label=localization.get_localize("Model params"), interactive=True, placeholder="EX: 0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
-            with gr.Box(elem_classes="lorahelp_box"):
+            with GradioBox(elem_classes="lorahelp_box"):
                 #提詞編輯區
                 with gr.Column():
                     gr.Markdown(f"### {localization.get_localize('Edit Model Trigger Words')}")
@@ -120,7 +123,7 @@ def on_ui_tabs():
                                 json_refresh_event = ToolButton(value=libdata.refresh_symbol, elem_id="lorahelp_json_refresh_event_btn")
                             js_json_preview = gr.JSON()
             #輸出訊息框
-            with gr.Box(elem_classes="lorahelp_box"):
+            with GradioBox(elem_classes="lorahelp_box"):
                 with gr.Column():
                     js_message_report = gr.Textbox(label=localization.get_localize("Message"), interactive=False, elem_id="lorahelp_js_output_message")
             js_save_model_setting_btn = gr.Button(value=localization.get_localize("Save"), 
@@ -128,7 +131,7 @@ def on_ui_tabs():
             )
 
             #導入功能區
-            with gr.Box(elem_classes="lorahelp_box"):
+            with GradioBox(elem_classes="lorahelp_box"):
                 with gr.Column():
                     gr.Markdown(f"### {localization.get_localize('Batch import prompts')}")
                     with gr.Row():
@@ -153,7 +156,7 @@ def on_ui_tabs():
 
             json_ajax_txtbox = gr.Textbox(label="Model JSON", visible=False, lines=1, value="", elem_id="lorahelp_model_json_txtbox")
         with gr.Tab(localization.get_localize('Settings')):
-            with gr.Box(elem_classes="lorahelp_box"):
+            with GradioBox(elem_classes="lorahelp_box"):
                 with gr.Column():
                     gr.Markdown(f"### {localization.get_localize_message('Settings')}")
                     with gr.Row():

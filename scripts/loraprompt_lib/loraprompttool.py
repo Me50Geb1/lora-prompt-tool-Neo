@@ -7,6 +7,39 @@ from . import localization
 
 source_filename = "loraprompttool"
 
+def _clean_relative_model_path(model_path):
+    path = str(model_path or "")
+    if os.path.isabs(path):
+        return path
+    return path.lstrip("/\\")
+
+def _candidate_model_paths(model_type, model_path, extensions=("",)):
+    clean = _clean_relative_model_path(model_path)
+    if os.path.isabs(clean):
+        for ext in extensions:
+            yield clean + ext
+        return
+    for folder in libdata.get_model_folders(model_type):
+        for ext in extensions:
+            yield os.path.join(folder, clean) + ext
+
+def _find_model_file(model_type, model_path, extensions=("",)):
+    first = None
+    for path in _candidate_model_paths(model_type, model_path, extensions):
+        if first is None:
+            first = path
+        if os.path.isfile(path):
+            return path
+    return None
+
+def _info_bases(model_type, model_path):
+    base, _ = os.path.splitext(_clean_relative_model_path(model_path))
+    if os.path.isabs(base):
+        yield base
+        return
+    for folder in libdata.get_model_folders(model_type):
+        yield os.path.join(folder, base)
+
 def load_model_bundle_model_path(model_type, model_path):
     """load model bundle embeding by model path
 
@@ -32,11 +65,9 @@ def load_model_bundle_model_path(model_type, model_path):
     if base[:1] == "\\" or base[:1] == "/":
         model_info_base = base[1:]
 
-    model_folder = libdata.folders[model_type]
-    model_safetensor = f"{model_info_base}.safetensors"
-    model_safetensor_path = os.path.join(model_folder, model_safetensor)
+    model_safetensor_path = _find_model_file(model_type, f"{model_info_base}.safetensors")
     enb_names = set()
-    if os.path.isfile(model_safetensor_path):
+    if model_safetensor_path and os.path.isfile(model_safetensor_path):
         import torch
         import safetensors
         with safetensors.safe_open(model_safetensor_path, framework="pt", device="cpu") as f:
@@ -72,27 +103,16 @@ def load_model_info_by_model_path(model_type, model_path):
     if base[:1] == "\\" or base[:1] == "/":
         model_info_base = base[1:]
 
-    finded_file = False
     first_path = ""
-    model_info_filepath = ""
-    model_folder = libdata.folders[model_type]
-    for info_ext in libdata.info_ext:
-        if finded_file:
-            break
-        model_info_filename = model_info_base + info_ext
-        model_info_filepath = os.path.join(model_folder, model_info_filename)
-        if first_path == "":
-            first_path = model_info_filepath
-        if not os.path.isfile(model_info_filepath):
-            continue
-        finded_file = True
-    if not finded_file:
-        util.console.log("Can not find model info file: " + first_path)
-        return
-    if model_info_filepath == "":
-        util.console.error("Error load info file!", f"{source_filename}.load_model_info_by_model_path")
-        return
-    return model.load_model_info(model_info_filepath)
+    for info_base in _info_bases(model_type, model_path):
+        for info_ext in libdata.info_ext:
+            model_info_filepath = info_base + info_ext
+            if not first_path:
+                first_path = model_info_filepath
+            if os.path.isfile(model_info_filepath):
+                return model.load_model_info(model_info_filepath)
+    util.console.log("Can not find model info file: " + first_path)
+    return
 
 def check_model_state(model_info):
     if model_info is None:
@@ -238,18 +258,9 @@ def load_model_info_from_Civitai(model_type, model_path):
     if model_path[:1] == "/" or model_path[:1] == "\\":
         model_base = model_path[1:]
 
-    first_model_filename = None
-    model_folder = libdata.folders[model_type]
-    for ext in model_exts:
-        model_filename = model_base
-        model_filepath = os.path.join(model_folder, model_filename) + ext
-        if first_model_filename is None:
-            first_model_filename = os.path.join(model_folder, model_filename)
-        if not os.path.isfile(model_filepath):
-            continue
-        break
-    if not os.path.isfile(model_filepath):
-        util.console.debug("Can not find model file: " + first_model_filename)
+    model_filepath = _find_model_file(model_type, model_base, model_exts)
+    if not model_filepath:
+        util.console.debug("Can not find model file: " + str(model_path))
         return
     hash = util.gen_file_sha256(model_filepath)
     return get_model_info_by_hash(hash)
@@ -276,27 +287,19 @@ def save_model_info_by_model_path(model_info, model_type, model_path):
     if base[:1] == "/" or base[:1] == "\\":
         model_info_base = base[1:]
 
-    finded_file = False
-    not_file = False
-    first_path = ""
-    model_info_filepath = ""
-    model_folder = libdata.folders[model_type]
-    for info_ext in libdata.info_ext:
-        if finded_file:
-            break
-        not_file = False
-        model_info_filename = model_info_base + info_ext
-        model_info_filepath = os.path.join(model_folder, model_info_filename)
-        if first_path == "":
-            first_path = model_info_filepath
-        if os.path.exists(model_info_filepath):
-            if not os.path.isfile(model_info_filepath):
-                not_file = True
-                continue
-            finded_file = True
-    if not_file:
-        util.console.error("not a file: " + first_path, f"{source_filename}.save_model_info_by_model_path")
+    # Keep Civitai Helper metadata untouched.  Store this extension's edits in
+    # .json (or an existing legacy .info) next to the actual model file.
+    target_base = None
+    actual_model = _find_model_file(model_type, model_path, ("",) if os.path.splitext(model_path)[1] else libdata.exts)
+    if actual_model:
+        target_base = os.path.splitext(actual_model)[0]
+    else:
+        target_base = next(_info_bases(model_type, model_path), None)
+    if not target_base:
+        util.console.error("Can not resolve model path: " + str(model_path), f"{source_filename}.save_model_info_by_model_path")
         return
-    if not finded_file:
-        model_info_filepath = first_path
+
+    legacy_info = target_base + ".info"
+    json_info = target_base + ".json"
+    model_info_filepath = legacy_info if os.path.isfile(legacy_info) and not os.path.isfile(json_info) else json_info
     model.write_model_info(model_info_filepath, model_info)

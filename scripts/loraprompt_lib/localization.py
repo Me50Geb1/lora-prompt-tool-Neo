@@ -9,16 +9,17 @@ local_data = {}
 local_id = ""
 
 localizations = {}
-localizations_dir = shared.cmd_opts.localizations_dir if "localizations_dir" in shared.cmd_opts else "localizations"
+localizations_dir = getattr(shared.cmd_opts, "localizations_dir", None) or getattr(shared.cmd_opts, "localizations_dir", None) or "localizations"
 
 def list_localizations(dirname):
     localizations.clear()
-    for file in os.listdir(dirname):
-        fn, ext = os.path.splitext(file)
-        if ext.lower() != ".json":
-            continue
+    if dirname and os.path.isdir(dirname):
+        for file in os.listdir(dirname):
+            fn, ext = os.path.splitext(file)
+            if ext.lower() != ".json":
+                continue
 
-        localizations[fn] = os.path.join(dirname, file)
+            localizations[fn] = os.path.join(dirname, file)
 
     from modules import scripts
     for file in scripts.list_scripts("localizations", ".json"):

@@ -1,6 +1,6 @@
 source_filename = "extension_data"
 
-version = "1.0.0"
+version = "1.0.0-neo-compat2-red"
 
 extension_name = "lora-prompt-tool"
 extension_id = "lora_prompt_helper"

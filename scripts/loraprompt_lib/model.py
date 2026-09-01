@@ -31,26 +31,47 @@ def get_db_model_setting(model_name):
     except Exception as e1:
         return
 
+def _cmd_paths(*names):
+    paths = []
+    for name in names:
+        value = getattr(shared.cmd_opts, name, None)
+        if not value:
+            continue
+        if isinstance(value, (list, tuple, set)):
+            paths.extend(value)
+        else:
+            paths.append(value)
+    return paths
+
+def _existing_or_default(paths, default_path):
+    out = []
+    for path in paths:
+        if path and os.path.isdir(path) and path not in out:
+            out.append(path)
+    if default_path and os.path.isdir(default_path) and default_path not in out:
+        out.append(default_path)
+    return out or [default_path]
+
 def get_custom_model_folder():
-    """load model folder by user setting"""
-    util.console.log("Get Custom Model Folder")
+    """Load model folders from A1111 / Forge / Forge Neo safely."""
+    util.console.log("Get Custom Model Folder (A1111/Forge/Forge Neo compatible)")
 
-    if shared.cmd_opts.embeddings_dir and os.path.isdir(shared.cmd_opts.embeddings_dir):
-        libdata.folders["ti"] = shared.cmd_opts.embeddings_dir
+    defaults = dict(libdata.folders)
 
-    if shared.cmd_opts.hypernetwork_dir and os.path.isdir(shared.cmd_opts.hypernetwork_dir):
-        libdata.folders["hyper"] = shared.cmd_opts.hypernetwork_dir
+    ti = _existing_or_default(_cmd_paths("embeddings_dir"), defaults["ti"])
+    hyper = _existing_or_default(_cmd_paths("hypernetwork_dir"), defaults["hyper"])
+    ckp = _existing_or_default(_cmd_paths("ckpt_dirs", "ckpt_dir"), defaults["ckp"])
+    lora = _existing_or_default(_cmd_paths("lora_dirs", "lora_dir"), defaults["lora"])
+    lyco = _existing_or_default(_cmd_paths("lyco_dir"), defaults["lyco"])
 
-    if shared.cmd_opts.ckpt_dir and os.path.isdir(shared.cmd_opts.ckpt_dir):
-        libdata.folders["ckp"] = shared.cmd_opts.ckpt_dir
+    libdata.set_model_folders("ti", ti)
+    libdata.set_model_folders("hyper", hyper)
+    libdata.set_model_folders("ckp", ckp)
+    libdata.set_model_folders("lora", lora)
+    libdata.set_model_folders("lyco", lyco)
 
-    if hasattr(shared.cmd_opts, "lora_dir"):
-        if shared.cmd_opts.lora_dir and os.path.isdir(shared.cmd_opts.lora_dir):
-            libdata.folders["lora"] = shared.cmd_opts.lora_dir
-
-    if hasattr(shared.cmd_opts, "lyco_dir"):
-        if shared.cmd_opts.lyco_dir and os.path.isdir(shared.cmd_opts.lyco_dir):
-            libdata.folders["lyco"] = shared.cmd_opts.lyco_dir
+    for model_type in ("ti", "hyper", "ckp", "lora", "lyco"):
+        util.console.debug(f"Model folders [{model_type}]: {libdata.get_model_folders(model_type)}")
 
 def write_model_info(path, model_info):
     """write model JSON data

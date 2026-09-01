@@ -302,7 +302,7 @@ function module_init() {
 
                 if (modelId !== null) {
                     let context_menu_goto_civitai = lorahelper.create_context_menu_button(lorahelper.get_UI_display("CivitAI webpage of model"));
-                    context_menu_goto_civitai.setAttribute("onclick",'window.open("https://civitai.com/models/'+modelId+'", "_blank")');
+                    context_menu_goto_civitai.setAttribute("onclick",'window.open("https://civitai.red/models/'+modelId+'", "_blank")');
                     lorahelper.lorahelper_context_menu_edit_after.appendChild(context_menu_goto_civitai);
                 }
 

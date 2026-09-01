@@ -8,8 +8,12 @@ source_filename = "libdata"
 
 # root path
 root_path = os.getcwd()
-script_path = os.sep.join(__file__.split(os.sep)[0:-5]) if root_path is None else root_path
-models_path = os.path.join(script_path, "models")
+script_path = root_path
+try:
+    from modules.paths_internal import models_path as webui_models_path
+    models_path = webui_models_path
+except Exception:
+    models_path = os.path.join(script_path, "models")
 dreambooth_models_path = os.path.join(models_path, "dreambooth")
 try:
     dreambooth_models_path = ws.cmd_opts.dreambooth_models_path or dreambooth_models_path
@@ -34,28 +38,49 @@ paste_append_symbol = '\U0001F4DD' #📝
 refresh_symbol = '\U0001f504'  # 🔄
 
 folders = {
-    "ti": os.path.join(root_path, "embeddings"),
-    "hyper": os.path.join(root_path, "models", "hypernetworks"),
-    "ckp": os.path.join(root_path, "models", "Stable-diffusion"),
-    "lora": os.path.join(root_path, "models", "Lora"),
-    "lyco": os.path.join(root_path, "models", "LyCORIS"),
+    # Forge Neo moved embeddings under models/.
+    "ti": os.path.join(models_path, "embeddings"),
+    "hyper": os.path.join(models_path, "hypernetworks"),
+    "ckp": os.path.join(models_path, "Stable-diffusion"),
+    "lora": os.path.join(models_path, "Lora"),
+    "lyco": os.path.join(models_path, "LyCORIS"),
 }
+
+# Neo can expose more than one checkpoint/LoRA directory.  Keep the old
+# single-folder mapping for compatibility, but resolve reads across this list.
+folder_lists = {key: [value] for key, value in folders.items()}
+
+def set_model_folders(model_type, paths):
+    clean = []
+    for path in paths or []:
+        if not path:
+            continue
+        path = os.path.abspath(os.path.expanduser(str(path)))
+        if path not in clean:
+            clean.append(path)
+    if not clean:
+        clean = [folders[model_type]]
+    folder_lists[model_type] = clean
+    folders[model_type] = clean[0]
+
+def get_model_folders(model_type):
+    return folder_lists.get(model_type, [folders.get(model_type, "")])
 
 exts = (".bin", ".pt", ".safetensors", ".ckpt")
 info_ext = [".json", ".info", ".civitai.info"]
 vae_suffix = ".vae"
 
 if '--embeddings-dir' in sys.argv:
-    folders['ti'] = sys.argv[sys.argv.index('--embeddings-dir')+1]
+    set_model_folders('ti', [sys.argv[sys.argv.index('--embeddings-dir')+1]])
 
 if '--hypernetwork-dir' in sys.argv:
-    folders['hyper'] = sys.argv[sys.argv.index('--hypernetwork-dir')+1]
+    set_model_folders('hyper', [sys.argv[sys.argv.index('--hypernetwork-dir')+1]])
 
 if '--ckpt-dir' in sys.argv:
-    folders['ckp'] = sys.argv[sys.argv.index('--ckpt-dir')+1]
+    set_model_folders('ckp', [sys.argv[sys.argv.index('--ckpt-dir')+1]])
 
 if '--lora-dir' in sys.argv:
-    folders['lora'] = sys.argv[sys.argv.index('--lora-dir')+1]
+    set_model_folders('lora', [sys.argv[sys.argv.index('--lora-dir')+1]])
 
 
 http_state_codes = {
@@ -111,10 +136,10 @@ model_type_names = {
 }
 
 civitai_apis = {
-    "modelPage":"https://civitai.com/models/",
-    "modelId": "https://civitai.com/api/v1/models/",
-    "modelVersionId": "https://civitai.com/api/v1/model-versions/",
-    "hash": "https://civitai.com/api/v1/model-versions/by-hash/"
+    "modelPage":"https://civitai.red/models/",
+    "modelId": "https://civitai.red/api/v1/models/",
+    "modelVersionId": "https://civitai.red/api/v1/model-versions/",
+    "hash": "https://civitai.red/api/v1/model-versions/by-hash/"
 }
 
 dataframe_empty_row = ["","","",""]
